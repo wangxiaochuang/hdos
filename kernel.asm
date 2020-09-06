@@ -10,7 +10,7 @@ LABEL_GDT:          Descriptor      0,       0,               0
 LABEL_DESC_CODE32:  Descriptor      0,   SegCode32Len - 1,    DA_C + DA_32
 LABEL_DESC_VIDEO:   Descriptor   0B8000h,   0ffffh,           DA_DRW
 LABEL_DESC_VRAM:    Descriptor      0,   0ffffffffh,          DA_DRW
-LABEL_DESC_STACK:   Descriptor      0,   TopOfStack,          DA_DRW+DA_32
+LABEL_DESC_STACK:   Descriptor      0,   TopOfStack,          DA_DRWA+DA_32
 
 
   
@@ -137,11 +137,13 @@ io_store_eflags:
     popfd
     ret
 
+%include "tmp/fontData.inc"
+
 SegCode32Len    equ $ - LABEL_SEG_CODE32
 
 [SECTION .gs]
 ALIGN 32
 [BITS 32]
 LABEL_STACK:
-    times 512 db 0
+    times 10240 db 0
 TopOfStack equ $ - LABEL_STACK

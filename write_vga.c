@@ -25,15 +25,34 @@ void init_palette(void);
 void set_palette(int start, int end, unsigned char *rgb);
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1);
 
+struct BOOTINFO {
+    char *vgaRam;
+    int screenX;
+    int screenY;
+};
+void initBootInfo(struct BOOTINFO *pBootInfo);
+
+static char fontA[16] = {0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
+    0x24, 0x7e, 0x42, 0x42, 0x42, 0xe7, 0x00, 0x00
+};
+extern char systemFont[16];
+void showFont8(char *vram, int xsize, int x, int y, char c, char* font);
+void showString(char *vram, int xsize, int x, int y, char color, unsigned char *s);
+void init_mouse_cursor(char* mouse, char bc);
+void putblock(char* vram, int vxsize, int pxsize, int pysize, int px0, int py0, char* buf, int bxsize);
+
+static char mcursor[16][16];
+
 void CMain(void) {
-    int i;
+    struct BOOTINFO bootInfo;
+    initBootInfo(&bootInfo);
+    // char *vram = bootInfo.vgaRam;
     char *vram = (char *)0xa0000;
+    // int xsize = bootInfo.screenX, ysize = bootInfo.screenY;
+    int xsize = 320, ysize = 200;
+
     init_palette();
 
-    //boxfill8(vram, 320, COL8_FF0000, 20, 20, 120, 120);
-    //boxfill8(vram, 320, COL8_00FF00, 70, 50, 170, 150);
-    //boxfill8(vram, 320, COL8_0000FF, 120, 80, 220, 180);
-    int xsize = 320, ysize = 200;
     boxfill8(vram, xsize, COL8_008484, 0, 0, xsize-1, ysize-29);
     boxfill8(vram, xsize, COL8_C6C6C6, 0, ysize-28, xsize-1, ysize-28);
     boxfill8(vram, xsize, COL8_FFFFFF, 0, ysize-27, xsize-1, ysize-27);
@@ -51,9 +70,29 @@ void CMain(void) {
     boxfill8(vram, xsize, COL8_FFFFFF, xsize-47, ysize-3, xsize-4, ysize-3);
     boxfill8(vram, xsize, COL8_FFFFFF, xsize-3,  ysize-24, xsize-3, ysize-3);
 
+    // showFont8(vram, xsize, 8, 8, COL8_FFFFFF, fontA);
+    // showFont8(vram, xsize, 16, 8, COL8_FFFFFF, fontA);
+    // showFont8(vram, xsize, 24, 8, COL8_FFFFFF, fontA);
+    // showFont8(vram, xsize, 32, 8, COL8_FFFFFF, fontA);
+    // showFont8(vram, xsize, 40, 8, COL8_FFFFFF, fontA);
+    // showFont8(vram, xsize, 48, 8, COL8_FFFFFF, fontA);
+    // showFont8(vram, xsize, 56, 8, COL8_FFFFFF, fontA);
+    // showFont8(vram, xsize, 64, 8, COL8_FFFFFF, fontA);
+    // showFont8(vram, xsize, 72, 8, COL8_FFFFFF, systemFont + 'C' * 16);
+    showString(vram, xsize, 8, 8, COL8_FFFFFF, "this is the first line");
+
+    init_mouse_cursor(mcursor, COL8_008484);
+    putblock(vram, xsize, 16, 16, 80, 80, mcursor, 16);
+
     for(;;) {
         io_hlt();
     }
+}
+
+void initBootInfo(struct BOOTINFO *pBootInfo) {
+    pBootInfo->vgaRam = (char *)0xa0000;
+    pBootInfo->screenX = 320;
+    pBootInfo->screenY = 200;
 }
 
 void init_palette(void) {
@@ -100,4 +139,69 @@ void boxfill8(unsigned char *vram, int xsize, unsigned char c,
             vram[y * xsize + x] = c;
         }
     }
+}
+void showFont8(char *vram, int xsize, int x, int y, char c, char* font) {
+    int i;
+    unsigned char d;
+    int j;
+    for (i = 0; i < 16; i++) {
+        d = font[i]; 
+
+        for (j = 7; j >= 0; j--) {
+            if (d & (1<<j)) {
+                vram[(y+i)*xsize + x + 7 - j] = c;
+            }
+        }
+    }
+}
+void showString(char *vram, int xsize, int x, int y, char color, unsigned char *s) {
+    while (*s) {
+        showFont8(vram, xsize, x, y, color, systemFont + *(s++) * 16);
+        x += 8;
+    }
+}
+
+void init_mouse_cursor(char* mouse, char bc) {
+    static char cursor[16][16] = {
+        "**************..",
+        "*OOOOOOOOOOO*...",
+        "*OOOOOOOOOO*....",
+        "*OOOOOOOOO*.....",
+        "*OOOOOOOO*......",
+        "*OOOOOOO*.......",
+        "*OOOOOOO*.......",
+        "*OOOOOOOO*......",
+        "*OOOO**OOO*.....",
+        "*OOO*..*OOO*....",
+        "*OO*....*OOO*...",
+        "*O*......*OOO*..",
+        "**........*OOO*.",
+        "*..........*OOO*",
+        "............*OO*",
+        ".............***"
+    };
+
+      int x, y;
+      for (y = 0; y < 16; y++) {
+          for (x = 0; x < 16; x++) {
+             if (cursor[y][x] == '*') {
+                 mouse[y*16 + x] = COL8_000000;
+             }
+             if (cursor[y][x] == 'O') {
+                mouse[y*16 + x] = COL8_FFFFFF;
+             }
+             if (cursor[y][x] == '.') {
+                 mouse[y*16 + x] = bc;
+             }
+          }
+      }
+}
+
+void putblock(char* vram, int vxsize, int pxsize,
+int pysize, int px0, int py0, char* buf, int bxsize) {
+    int x, y;
+    for (y = 0; y < pysize; y++)
+      for (x = 0; x < pxsize; x++) {
+          vram[(py0+y) * vxsize + (px0+x)] = buf[y * bxsize + x];
+      }
 }
